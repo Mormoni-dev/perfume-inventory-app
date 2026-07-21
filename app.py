@@ -7,7 +7,6 @@ DB_NAME = 'my_first_database.db'
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    # Using item_name to prevent schema conflicts
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,7 +18,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Auto-create table when app launches
 init_db()
 
 @app.route('/')
@@ -32,13 +30,15 @@ def index():
         conn.close()
         return render_template('dashboard.html', items=items)
     except Exception as e:
-        # Prints exact error in Render logs instead of failing silently
-        print(f"Error fetching inventory: {e}")
         return f"Database error: {e}", 500
+
+@app.route('/login')
+def login():
+    # If you have a login.html template, render it here
+    return render_template('login.html')
 
 @app.route('/add', methods=['POST'])
 def add_item():
-    # Handles both 'name' and 'item_name' from HTML form
     item_name = request.form.get('item_name') or request.form.get('name')
     quantity = request.form.get('quantity')
     price = request.form.get('price')
