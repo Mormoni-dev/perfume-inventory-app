@@ -1,9 +1,9 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+from flask import Flask, render_template, request, redirect, url_for, session
 
 app = Flask(__name__)
-app.secret_key = 'perfume_secret_key_123'
+app.secret_key = 'perfume_hub_secret_key_2026'
 DB_NAME = 'my_first_database.db'
 
 def init_db():
@@ -12,11 +12,11 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS inventory (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            cost REAL DEFAULT 0,
-            price REAL DEFAULT 0,
+            item_name TEXT,
+            cost_price REAL DEFAULT 0,
+            selling_price REAL DEFAULT 0,
             quantity INTEGER DEFAULT 0,
-            split REAL DEFAULT 50.0
+            partner_split REAL DEFAULT 50.0
         )
     ''')
     conn.commit()
@@ -26,94 +26,110 @@ init_db()
 
 @app.route('/')
 def index():
-    search_query = request.args.get('search', '')
-    
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    
-    if search_query:
-        cursor.execute('SELECT id, name, cost, price, quantity, split FROM inventory WHERE name LIKE ?', (f'%{search_query}%',))
-    else:
-        cursor.execute('SELECT id, name, cost, price, quantity, split FROM inventory')
-        
-    rows = cursor.fetchall()
-    conn.close()
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
 
-    perfumes = []
-    total_val = 0.0
-    total_profit = 0.0
-
-    for row in rows:
-        item_id, name, cost, price, qty, split = row
-        
-        cost = float(cost or 0)
-        price = float(price or 0)
-        qty = int(qty or 0)
-        split = float(split or 50.0)
-
-        unit_profit = price - cost
-        total_unit_profit = unit_profit * qty
-        your_share = total_unit_profit * (split / 100.0)
-
-        total_val += (price * qty)
-        total_profit += total_unit_profit
-
-        perfumes.append({
-            'id': item_id,
-            'name': name,
-            'cost': cost,
-            'price': price,
-            'quantity': qty,
-            'split': split,
-            'unit_profit': unit_profit,
-            'your_share': your_share
-        })
-
-    username = session.get('username', 'Admin')
-
-    return render_template(
-        'dashboard.html',
-        perfumes=perfumes,
-        total_val=total_val,
-        total_profit=total_profit,
-        username=username,
-        search_query=search_query
-    )
-
-@app.route('/add', methods=['POST'])
-def add_item():
-    name = request.form.get('name')
-    cost = request.form.get('cost', 0)
-    price = request.form.get('price', 0)
-    quantity = request.form.get('quantity', 0)
-    split = request.form.get('split', 50.0)
-
-    if name:
+    try:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute(
-            'INSERT INTO inventory (name, cost, price, quantity, split) VALUES (?, ?, ?, ?, ?)',
-            (name, float(cost or 0), float(price or 0), int(quantity or 0), float(split or 50.0))
-        )
-        conn.commit()
+        cursor.execute('SELECT id, item_name, cost_price, selling_price, quantity, partner_split FROM inventory')
+        rows = cursor.fetchall()
         conn.close()
-        flash('Fragrance added successfully!', 'success')
 
-    return redirect(url_for('index'))
+        items = []
+        total_val = 0.0
+        total_profit = 0.0
 
-@app.route('/delete/<int:item_id>', methods=['POST'])
-def delete_item(item_id):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-    cursor.execute('DELETE FROM inventory WHERE id = ?', (item_id,))
-    conn.commit()
-    conn.close()
-    flash('Item deleted.', 'warning')
+        for row in rows:
+            item_id = row[0]
+            name = row[1] or "Unnamed Perfume"
+            cost = float(row[2]) if row[2] is not None else 0.0
+            sell = float(row[3]) if row[3] is not None else 0.0
+            qty = int(row[4]) if row[4] is not None else 0
+            split = float(row[5]) if row[5] is not None else 50.0
+
+            item_revenue = sell * qty
+            item_net_profit = (sell - cost) * qty
+            your_share = item_net_profit * (split / 100.0)
+
+            total_val += item_revenue
+            total_profit += item_net_profit
+
+            items.append({
+                'id': item_id,
+                'name': name,
+                'item_name': name,
+                'cost': cost,
+                'sell': sell,
+                'cost_price': cost,
+                'selling_price': sell,
+                'quantity': qty,
+                'partner_split': split,
+                'net_profit': item_net_profit,
+                'your_share': your_share
+            })
+
+        return render_template(
+            'dashboard.html', 
+            items=items, 
+            total_val=total_val, 
+            total_profit=total_profit
+        )
+    except Exception as e:
+        print(f"Error: {e}")
+        return render_template('dashboard.html', items=[], total_val=0.0, total_profit=0.0)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        session['logged_in'] = True
+        return redirect(url_for('index'))
+
+    login_path = os.path.join(app.template_folder or 'templates', 'login.html')
+    if os.path.exists(login_path):
+        return render_template('login.html')
+    
+    session['logged_in'] = True
     return redirect(url_for('index'))
 
 @app.route('/logout')
 def logout():
-    session.clear()
+    session.pop('logged_in', None)
+    return redirect(url_for('login'))
+
+@app.route('/add', methods=['POST'])
+def add_item():
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    item_name = request.form.get('item_name') or request.form.get('name')
+    cost_price = request.form.get('cost_price') or 0
+    selling_price = request.form.get('selling_price') or request.form.get('price') or 0
+    quantity = request.form.get('quantity') or 0
+    partner_split = request.form.get('partner_split') or 50.0
+
+    if item_name:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO inventory (item_name, cost_price, selling_price, quantity, partner_split)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (item_name, float(cost_price), float(selling_price), int(quantity), float(partner_split)))
+        conn.commit()
+        conn.close()
+        
+    return redirect(url_for('index'))
+
+@app.route('/sell/<int:item_id>', methods=['POST'])
+def sell_item(item_id):
+    if not session.get('logged_in'):
+        return redirect(url_for('login'))
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE inventory SET quantity = MAX(0, quantity - 1) WHERE id = ?', (item_id,))
+    conn.commit()
+    conn.close()
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
