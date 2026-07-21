@@ -35,7 +35,7 @@ def index():
 @app.route('/login')
 def login():
     # If you have a login.html template, render it here
-    return render_template('login.html')
+    return render_template('dashboard.html', ...)
 
 @app.route('/add', methods=['POST'])
 def add_item():
