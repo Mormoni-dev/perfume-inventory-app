@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Perfume Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary: #4f46e5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 30px 20px; }
+        .container { max-width: 1250px; margin: 0 auto; }
+
+        .header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { font-size: 26px; font-weight: 700; }
+
+        .btn-export {
+            background-color: var(--success);
+            color: white;
+            text-decoration: none;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            display: inline-block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .stat-card p { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .stat-card h2 { font-size: 22px; font-weight: 700; margin-top: 6px; }
+        .stat-card.profit h2 { color: var(--success); }
+        .stat-card.user h2 { color: var(--primary); }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) 120px;
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .form-group input, .form-group select {
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .btn-add {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .sell-box { display: flex; gap: 6px; flex-direction: column; }
+        .btn-sell {
+            background-color: #0f172a;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .btn-delete {
+            background-color: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background-color: #f1f5f9; padding: 12px 16px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); }
+        td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid var(--border-color); }
+
+        .fw-600 { font-weight: 600; }
+        .badge { padding: 4px 10px; font-size: 12px; font-weight: 600; border-radius: 20px; background-color: #ecfdf5; color: #047857; }
+        .badge-low { background-color: #fffbeb; color: #b45309; }
+        .badge-out { background-color: #fef2f2; color: #b91c1c; }
+        .badge-status { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+        .badge-paid { background-color: #d1fae5; color: #065f46; }
+        .badge-pending { background-color: #fef3c7; color: #92400e; }
+        .empty-state { text-align: center; padding: 24px; color: var(--text-muted); }
+        .actions-cell { display: flex; gap: 8px; align-items: flex-end; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header">
+            <h1>Perfume Operations Hub</h1>
+            <a href="/export_csv" class="btn-export">📥 Export Sales (CSV)</a>
+        </div>
+
+        <!-- Financial Metrics -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <p>Total Sales Revenue</p>
+                <h2>₦{{ "{:,.2f}".format(revenue) }}</h2>
+            </div>
+            <div class="stat-card profit">
+                <p>Net Profit Logged</p>
+                <h2>₦{{ "{:,.2f}".format(profit) }}</h2>
+            </div>
+            <div class="stat-card user">
+                <p>Your Profit Share</p>
+                <h2>₦{{ "{:,.2f}".format(user_share) }}</h2>
+            </div>
+            <div class="stat-card">
+                <p>Partner Share</p>
+                <h2>₦{{ "{:,.2f}".format(partner_share) }}</h2>
+            </div>
+            <div class="stat-card">
+                <p>Inventory Cost Value</p>
+                <h2>₦{{ "{:,.2f}".format(stock_value) }}</h2>
+            </div>
+        </div>
+
+        <!-- Chart Analytics & Quick Entry -->
+        <div class="dashboard-grid">
+            <div class="card" style="margin-bottom:0;">
+                <h2 class="section-title">Sales & Profit Trends</h2>
+                <canvas id="salesChart" height="110"></canvas>
+            </div>
+
+            <div class="card" style="margin-bottom:0;">
+                <h2 class="section-title">Portfolio Breakdown</h2>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
+                    Expected Total Stock Valuation: <br><strong style="font-size: 18px; color: var(--text-main);">₦{{ "{:,.2f}".format(potential_revenue) }}</strong>
+                </p>
+                <hr style="border: none; border-top: 1px solid var(--border-color); margin: 12px 0;">
+                <p style="font-size: 13px; color: var(--text-muted);">
+                    Low Stock Warnings: <br><strong style="font-size: 18px; color: var(--warning);">{{ low_stock }} Fragrances Need Restock</strong>
+                </p>
+            </div>
+        </div>
+
+        <!-- Add Stock Form -->
+        <div class="card">
+            <h2 class="section-title">Add / Restock Fragrance</h2>
+            <form action="/add_stock" method="POST" class="form-grid">
+                <div class="form-group">
+                    <label>House / Brand</label>
+                    <input type="text" name="brand" placeholder="e.g. Parfums de Marly" required>
+                </div>
+                <div class="form-group">
+                    <label>Fragrance Name</label>
+                    <input type="text" name="item_name" placeholder="e.g. Haltane" required>
+                </div>
+                <div class="form-group">
+                    <label>Volume (ML)</label>
+                    <input type="number" name="size_ml" placeholder="100" value="100" required>
+                </div>
+                <div class="form-group">
+                    <label>Cost Price (₦)</label>
+                    <input type="number" step="0.01" name="cost_price" placeholder="75000" required>
+                </div>
+                <div class="form-group">
+                    <label>Selling Price (₦)</label>
+                    <input type="number" step="0.01" name="selling_price" placeholder="150000" required>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" name="quantity" placeholder="1" min="1" required>
+                </div>
+                <div class="form-group">
+                    <label>Your Split (%)</label>
+                    <input type="number" step="1" name="partner_split" placeholder="50" value="50" required>
+                </div>
+                <button type="submit" class="btn-add">Save Item</button>
+            </form>
+        </div>
+
+        <!-- Inventory List -->
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <table style="margin: 0;">
+                <thead>
+                    <tr>
+                        <th>Brand & Item</th>
+                        <th>Volume</th>
+                        <th>Cost Price</th>
+                        <th>Selling Price</th>
+                        <th>ROI %</th>
+                        <th>Stock Level</th>
+                        <th>Record Sale</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory_list %}
+                    {% set cost = item['cost_price'] or 1 %}
+                    {% set price = item['selling_price'] or 0 %}
+                    {% set roi = ((price - cost) / cost * 100) if cost > 0 else 0 %}
+                    <tr>
+                        <td>
+                            <strong class="fw-600">{{ item['item_name'] }}</strong><br>
+                            <span style="font-size: 12px; color: var(--text-muted);">{{ item['brand'] or 'Generic' }}</span>
+                        </td>
+                        <td>{{ item['size_ml'] or 100 }} ML</td>
+                        <td>₦{{ "{:,.2f}".format(cost) }}</td>
+                        <td class="fw-600">₦{{ "{:,.2f}".format(price) }}</td>
+                        <td><span style="color: var(--success); font-weight:700;">+{{ "{:,.0f}".format(roi) }}%</span></td>
+                        <td>
+                            {% if item['quantity'] > 2 %}
+                                <span class="badge">{{ item['quantity'] }} Units</span>
+                            {% elif item['quantity'] > 0 %}
+                                <span class="badge badge-low">{{ item['quantity'] }} Low Stock</span>
+                            {% else %}
+                                <span class="badge badge-out">Out of Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="actions-cell">
+                                {% if item['quantity'] > 0 %}
+                                    <form action="/sell/{{ item['id'] }}" method="POST" class="sell-box" style="margin:0;">
+                                        <input type="text" name="customer_name" placeholder="Buyer Name" style="padding: 4px 6px; font-size: 11px; border: 1px solid var(--border-color); border-radius: 4px;" required>
+                                        <select name="payment_status" style="padding: 4px 6px; font-size: 11px; border: 1px solid var(--border-color); border-radius: 4px;">
+                                            <option value="Paid">Paid</option>
+                                            <option value="Pending">Pending Deposit</option>
+                                        </select>
+                                        <button type="submit" class="btn-sell">Sell 1 Unit</button>
+                                    </form>
+                                {% endif %}
+                                <form action="/delete/{{ item['id'] }}" method="POST" style="margin:0;" onsubmit="return confirm('Delete item?');">
+                                    <button type="submit" class="btn-delete">X</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="empty-state">No fragrances currently in stock. Add your first item above!</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Sales & Customer History -->
+        <h2 class="section-title">Customer & Sales Records</h2>
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <table style="margin: 0;">
+                <thead>
+                    <tr>
+                        <th>Sale ID</th>
+                        <th>Customer</th>
+                        <th>Item</th>
+                        <th>Status</th>
+                        <th>Revenue</th>
+                        <th>Net Profit</th>
+                        <th>Your Share</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sale in sales_list %}
+                    <tr>
+                        <td>#{{ sale['id'] }}</td>
+                        <td class="fw-600">{{ sale['customer_name'] or 'Walk-in' }}</td>
+                        <td>{{ sale['item_name'] }}</td>
+                        <td>
+                            {% if sale['payment_status'] == 'Paid' %}
+                                <span class="badge-status badge-paid">PAID</span>
+                            {% else %}
+                                <span class="badge-status badge-pending">PENDING</span>
+                            {% endif %}
+                        </td>
+                        <td>₦{{ "{:,.2f}".format(sale['revenue'] or 0) }}</td>
+                        <td class="fw-600" style="color: var(--success);">+₦{{ "{:,.2f}".format(sale['net_profit'] or 0) }}</td>
+                        <td class="fw-600" style="color: var(--primary);">₦{{ "{:,.2f}".format(sale['user_share'] or 0) }}</td>
+                        <td style="color: var(--text-muted); font-size: 12px;">{{ sale['timestamp'] or 'N/A' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="empty-state">No sales logged yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: {{ chart_labels | tojson }},
+                datasets: [
+                    {
+                        label: 'Revenue (₦)',
+                        data: {{ chart_revenue | tojson }},
+                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Net Profit (₦)',
+                        data: {{ chart_profit | tojson }},
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    </script>
+</body>
+</html>

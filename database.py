@@ -39,3 +39,9 @@ def init_db():
             )
         ''')
         conn.commit()
+
+def get_all_inventory():
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, item_name, cost_price, selling_price, quantity FROM inventory")
+        return cursor.fetchall()
